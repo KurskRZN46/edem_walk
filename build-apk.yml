@@ -1,0 +1,50 @@
+# Автосборка APK в облаке GitHub (бесплатно).
+# Срабатывает при загрузке кода в репозиторий и при ручном запуске
+# (вкладка Actions -> Build APK -> Run workflow).
+# Готовый APK появляется внизу страницы сборки в разделе Artifacts.
+
+name: Build APK
+
+on:
+  workflow_dispatch: # ручной запуск кнопкой
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Забираем код проекта
+      - uses: actions/checkout@v4
+
+      # 2. Java 17 (нужна для Android-сборки)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 3. Flutter (стабильная версия, сам подтянет Android SDK)
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # 4. Зависимости
+      - run: flutter pub get
+
+      # 5. Сборка APK.
+      # Сначала пробуем release (быстрый, AOT-компиляция).
+      # --no-tree-shake-icons: отключаем вытряхивание иконок - из-за него
+      # иногда падают release-сборки, а экономит оно совсем немного.
+      # Если release всё же не собрался - автоматически собираем debug,
+      # чтобы APK был в любом случае.
+      - run: flutter build apk --release --no-tree-shake-icons || flutter build apk --debug
+
+      # 6. Выкладываем готовый файл как артефакт для скачивания.
+      # Забираем release, если он есть, иначе debug.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: edem-walk-apk
+          if-no-files-found: error
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-debug.apk
