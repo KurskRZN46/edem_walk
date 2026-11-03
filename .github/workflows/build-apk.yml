@@ -1,23 +1,41 @@
+# Автосборка APK в облаке GitHub (бесплатно).
+# Срабатывает при загрузке кода в репозиторий и при ручном запуске
+# (вкладка Actions -> Build APK -> Run workflow).
+# Готовый APK появляется внизу страницы сборки в разделе Artifacts.
+
 name: Build APK
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: # ручной запуск кнопкой
   push:
     branches: [ main, master ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1. Забираем код проекта
       - uses: actions/checkout@v4
+
+      # 2. Java 17 (нужна для Android-сборки)
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      # 3. Flutter (стабильная версия, сам подтянет Android SDK)
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      # 4. Зависимости
       - run: flutter pub get
-      - run: flutter build apk --debug
+
+      # 5. Сборка APK (release - быстрее работает и меньше весит)
+      - run: flutter build apk --release
+
+      # 6. Выкладываем готовый файл как артефакт для скачивания
       - uses: actions/upload-artifact@v4
         with:
           name: edem-walk-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
