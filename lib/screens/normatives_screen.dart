@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../data/position_norms.dart';
 import '../providers/normative_provider.dart';
 import '../providers/step_provider.dart';
+import 'trainings_screen.dart';
 
 // Экран «Нормативы футболиста».
 // Пользователь выбирает позицию, видит, сколько километров за матч
@@ -62,6 +63,17 @@ class NormativesScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0B0F14) : const Color(0xFFF8F9FB),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: red,
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const TrainingsScreen()),
+        ),
+        icon: const Icon(Icons.fitness_center),
+        label: const Text(
+          'План тренировок',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -186,7 +198,7 @@ class NormativesScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          norm.rangeLabel + ' за матч',
+                          '${norm.rangeLabel} за матч',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w900,

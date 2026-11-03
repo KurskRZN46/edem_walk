@@ -1,17 +1,30 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../data/career.dart' show rankForKm;
+import '../data/football_facts.dart' show factOfTheDay;
 import '../providers/step_provider.dart';
 import '../providers/normative_provider.dart';
+import '../providers/match_provider.dart';
+import '../providers/avatar_provider.dart';
 import '../services/step_service.dart' show PermissionState;
+import '../widgets/confetti_overlay.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
 import 'normatives_screen.dart';
 import 'footballers_screen.dart';
+import 'match_screen.dart';
+import 'career_screen.dart';
+import 'avatars_screen.dart';
+import 'football_world_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-  
+
+  // Факт дня считаем один раз, а не при каждом перестроении экрана
+  static final String _factOfDay = factOfTheDay();
+
   @override
   Widget build(BuildContext context) {
     final stepProvider = context.watch<StepProvider>(); // Подписываемся на StepProvider. Когда сервис вызывает notifyListeners(), HomeScreen перерисуется
@@ -36,16 +49,20 @@ class HomeScreen extends StatelessWidget {
     const green = Color(0xFF00C853);
     const red = Color(0xFFFF1744);
 
-    return Scaffold( // Каркас экрана
+    return GoalConfetti( // Залп конфетти, когда дневная цель достигнута
+      active: showGoalReached,
+      child: Scaffold( // Каркас экрана
       backgroundColor:
           isDark ? const Color(0xFF0B0F14) : const Color(0xFFF8F9FB),
-      body: SafeArea( // Обрезает верх/низ, чтобы контент не залазил
+      body: _Entrance( // Плавное появление экрана при запуске
+        child: SafeArea( // Обрезает верх/низ, чтобы контент не залазил
         child: Column( // Располагает детей вертикально
           children: [
             _Header(isDark: isDark, streak: streak, theme: theme), // Заголовок слева, серия (огонёк) справа
             Expanded( // Забирает всё оставшееся место под хедером
-              child: Padding( // Горизонтальные отступы по бокам
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SingleChildScrollView( // Прокрутка, чтобы контент влезал на маленьких экранах
+                child: Padding( // Горизонтальные отступы по бокам
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   children: [
                     const SizedBox(height: 12), // Небольшой отступ от хедера до круга
@@ -58,38 +75,31 @@ class HomeScreen extends StatelessWidget {
                         child: Stack( // Накладывает виджеты друг на друга
                           alignment: Alignment.center,
                           children: [
-                            CustomPaint( // Кольцо прогресса
-                              size: const Size(300, 300),
-                              painter: _ProgressRingPainter(progress, isDark),
+                            // Кольцо прогресса, анимированное.
+                            // RepaintBoundary изолирует его перерисовку от остального экрана
+                            RepaintBoundary(
+                              child: _AnimatedRing(progress: progress, isDark: isDark),
                             ),
                             Column( // Cодержимое круга
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min, // Не растягивается
                               children: [
-                                Container( // Иконка приложения с обводкой
-                                  padding: const EdgeInsets.all(3), // Отступ между обводкой и иконкой
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle, // Круглая обводка
-                                    border: Border.all(color: green, width: 2.5),
-                                  ),
-                                  child: ClipOval( // Обрезает картинку по кругу
-                                    child: Image.asset(
-                                      'assets/icon/app_icon.png', // Собственная иконка приложения (без чужих изображений)
-                                      width: 104,
-                                      height: 104,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => _placeholderAvatar(green),
-                                    ),
-                                  ),
-                                ),
+                                // Аватар в отдельном виджете: перестраивается только
+                                // при смене аватара, а не при каждом шаге
+                                _AvatarButton(color: green),
                                 const SizedBox(height: 8),
-                                Text( // Число шагов
-                                  '$steps',
-                                  style: TextStyle(
-                                    fontSize: 44,
-                                    fontWeight: FontWeight.w900,
-                                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                                    letterSpacing: -1,
+                                TweenAnimationBuilder<double>( // Число шагов "докручивается" плавно
+                                  tween: Tween<double>(begin: 0, end: steps.toDouble()),
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOut,
+                                  builder: (context, value, _) => Text(
+                                    '${value.round()}',
+                                    style: TextStyle(
+                                      fontSize: 44,
+                                      fontWeight: FontWeight.w900,
+                                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                      letterSpacing: -1,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -242,10 +252,54 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    // БАННЕР «ФАКТ ДНЯ» (тап - открыть «Мир футбола»)
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const FootballWorldScreen()),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF151B23) : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF1E2730) : const Color(0xFFD0D5DD),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lightbulb, size: 20, color: Color(0xFFFFB300)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _factOfDay,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.3,
+                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 20,
+                              color: isDark ? const Color(0xFF8B95A7) : const Color(0xFF5A6577),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     // КНОПКА СТАРТ/СТОП
                     const SizedBox(height: 18),
-                    GestureDetector( // Ловит тапы на любом своём ребёнке
+                    _Pulse( // Мягко пульсирует, приглашая начать
+                      active: !isRunning,
+                      child: GestureDetector( // Ловит тапы на любом своём ребёнке
                       onTap: () async {
+                        HapticFeedback.mediumImpact(); // отклик при старте/стопе
                         if (isRunning) {
                           stepProvider.stop();
                           return;
@@ -294,6 +348,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    ),
                     const SizedBox(height: 24),
                     // НИЖНИЕ КНОПКИ (НАВИГАЦИЯ)
                     Row(
@@ -305,6 +360,14 @@ class HomeScreen extends StatelessWidget {
                           isDark: isDark,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                          ),
+                        ),
+                        _NavButton(
+                          icon: Icons.timer,
+                          label: 'Матч',
+                          isDark: isDark,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const MatchScreen()),
                           ),
                         ),
                         _NavButton(
@@ -333,25 +396,61 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const Spacer(), // Забирает всё оставшееся место
+                    const SizedBox(height: 24),
                     const SizedBox(height: 12),
                   ],
                 ),
               ),
+              ),
             ),
           ],
         ),
+        ),
+      ),
       ),
     );
   }
 
-  // Рисует заглушку аватара
-  Widget _placeholderAvatar(Color color) {
-    return Container(
-      width: 104,
-      height: 104,
-      color: color.withValues(alpha: 0.15),
-      child: const Icon(Icons.person, size: 52, color: Color(0xFF00C853)),
+}
+
+// Кнопка-аватар в центре кольца. Подписана только на путь картинки аватара:
+// при каждом новом шаге этот виджет НЕ перестраивается
+class _AvatarButton extends StatelessWidget {
+  final Color color;
+
+  const _AvatarButton({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    // select следит только за asset-строкой, а не за всем провайдером
+    final asset = context.select<AvatarProvider, String>((p) => p.selected.asset);
+
+    return GestureDetector( // Тап по аватару - открыть выбор аватара
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AvatarsScreen()),
+      ),
+      child: Container( // Выбранный аватар с обводкой
+        padding: const EdgeInsets.all(3), // Отступ между обводкой и картинкой
+        decoration: BoxDecoration(
+          shape: BoxShape.circle, // Круглая обводка
+          border: Border.all(color: color, width: 2.5),
+        ),
+        child: ClipOval( // Обрезает картинку по кругу
+          child: Image.asset(
+            asset, // Выбранный аватар профиля
+            width: 104,
+            height: 104,
+            cacheWidth: 312, // Декодируем сразу под нужный размер (104 * 3 для плотных экранов) - экономит память и CPU
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container( // Заглушка, если картинка не найдена
+              width: 104,
+              height: 104,
+              color: color.withValues(alpha: 0.15),
+              child: const Icon(Icons.person, size: 52, color: Color(0xFF00C853)),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -373,6 +472,14 @@ class _Header extends StatelessWidget {
     final bgColor = isDark ? const Color(0xFF151B23) : const Color(0xFFE8ECF1); // Фон хедера
     final red = const Color(0xFFFF1744); // Для огонька и нижней полосы
 
+    // Живой матч: если идёт - показываем плашку со счётом (тап - на экран матча)
+    final match = context.watch<MatchProvider>();
+    final matchLive = match.phase == MatchPhase.running;
+
+    // Ранг карьеры по суммарному километражу (тап - на экран карьеры)
+    final totalKm = context.watch<StepProvider>().totalKmAllTime;
+    final rank = rankForKm(totalKm);
+
     return Container(
       width: double.infinity, // На всю ширину
       decoration: BoxDecoration(
@@ -391,16 +498,75 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), // Внутренние отступы
       child: Row(
         children: [
-          Text( // Заголовок слева
-            'Шагомер Edem Walk',
-            style: theme.textTheme.titleMedium?.copyWith( // Переопределяем базовый стиль
-              fontWeight: FontWeight.w900,
-              fontSize: 17,
-              letterSpacing: 0.3,
-              color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+          Expanded( // Заголовок + ранг слева
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text( // Заголовок
+                  'Шагомер Edem Walk',
+                  style: theme.textTheme.titleMedium?.copyWith( // Переопределяем базовый стиль
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                    letterSpacing: 0.3,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector( // Чип ранга карьеры
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CareerScreen()),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.workspace_premium, size: 13, color: Color(0xFF00C853)),
+                      const SizedBox(width: 4),
+                      Text(
+                        rank.name,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF00C853),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 13, color: Color(0xFF00C853)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(), // Прижимает всё, что после него, вправо
+          if (matchLive) // Плашка идущего матча
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MatchScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: red,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.sports_soccer, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${match.myGoals}:${match.oppGoals} ${match.footballMinute}'",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (streak > 0) // Плашка с серией
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -490,7 +656,10 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.selectionClick(); // лёгкий тактильный отклик
+        onTap();
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -529,6 +698,123 @@ class _NavButton extends StatelessWidget {
   }
 }
 
+// Кольцо прогресса с плавной анимацией: при изменении цели/шагов
+// дуга движется, а не прыгает
+class _AnimatedRing extends StatelessWidget {
+  final double progress;
+  final bool isDark;
+
+  const _AnimatedRing({required this.progress, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: progress),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) => CustomPaint(
+        size: const Size(300, 300),
+        painter: _ProgressRingPainter(value, isDark),
+      ),
+    );
+  }
+}
+
+// Мягкая пульсация (кнопка старт "дышит", приглашая нажать)
+class _Pulse extends StatefulWidget {
+  final bool active;
+  final Widget child;
+
+  const _Pulse({required this.active, required this.child});
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 1.07).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.active) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_Pulse old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.active && _controller.isAnimating) {
+      _controller.animateTo(0, duration: const Duration(milliseconds: 150));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(scale: _scale, child: widget.child);
+  }
+}
+
+// Плавное появление экрана: выезд снизу + проявление (один раз при открытии)
+class _Entrance extends StatefulWidget {
+  final Widget child;
+
+  const _Entrance({required this.child});
+
+  @override
+  State<_Entrance> createState() => _EntranceState();
+}
+
+class _EntranceState extends State<_Entrance>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    )..forward();
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.03),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _offset, child: widget.child),
+    );
+  }
+}
+
 // Рисовальщик кольца
 class _ProgressRingPainter extends CustomPainter {
   final double progress; // 0.0 ... 1.0
@@ -548,19 +834,39 @@ class _ProgressRingPainter extends CustomPainter {
       ..strokeWidth = 21;
     canvas.drawCircle(center, radius, bgPaint);
 
-    final progressPaint = Paint() // Прогреесс
-      ..color = const Color(0xFF00C853)
+    final progressPaint = Paint() // Прогресс: градиент зелёного
+      ..shader = const SweepGradient(
+        startAngle: -math.pi / 2,
+        endAngle: 3 * math.pi / 2,
+        colors: [
+          Color(0xFF00C853),
+          Color(0xFF69FF9E),
+          Color(0xFF00C853),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 21
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawArc( // Рисует дугу 
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      2 * math.pi * progress,
-      false,
-      progressPaint,
-    );
+    // Свечение под дугой прогресса
+    final glowPaint = Paint()
+      ..color = const Color(0xFF00C853).withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 30
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+
+    final ringRect = Rect.fromCircle(center: center, radius: radius);
+    if (progress > 0) {
+      canvas.drawArc(ringRect, -math.pi / 2, 2 * math.pi * progress, false, glowPaint);
+      canvas.drawArc( // Рисует дугу
+        ringRect,
+        -math.pi / 2,
+        2 * math.pi * progress,
+        false,
+        progressPaint,
+      );
+    }
   }
 
   @override

@@ -8,6 +8,10 @@ import 'services/storage_service.dart'; // Наш сервис хранения 
 import 'services/step_service.dart'; // Наш сервис шагомера
 import 'providers/step_provider.dart'; // Провайдер шагов
 import 'providers/normative_provider.dart'; // Провайдер футбольного норматива (выбранная позиция)
+import 'providers/match_provider.dart'; // Провайдер режима «Матч»
+import 'providers/career_provider.dart'; // Провайдер карьеры и достижений
+import 'providers/avatar_provider.dart'; // Провайдер выбранного аватара
+import 'providers/workout_provider.dart'; // Провайдер интервальных тренировок
 import 'screens/onboarding_screen.dart'; // Первый экран (запрос разрешений, объяснение)
 
 void main() async {
@@ -33,6 +37,22 @@ void main() async {
         // Провайдер нормативов. Загружает выбранную позицию из локального хранилища
         ChangeNotifierProvider<NormativeProvider>(
           create: (_) => NormativeProvider()..loadPosition(),
+        ),
+        // Провайдер матча. Восстанавливает незавершённый матч при запуске
+        ChangeNotifierProvider<MatchProvider>(
+          create: (_) => MatchProvider(stepService)..init(),
+        ),
+        // Провайдер карьеры. Читает статистику матчей из хранилища
+        ChangeNotifierProvider<CareerProvider>(
+          create: (_) => CareerProvider()..init(),
+        ),
+        // Провайдер аватара. Загружает выбранный аватар из хранилища
+        ChangeNotifierProvider<AvatarProvider>(
+          create: (_) => AvatarProvider()..loadAvatar(),
+        ),
+        // Провайдер тренировок. Загружает статистику и настройки плана
+        ChangeNotifierProvider<WorkoutProvider>(
+          create: (_) => WorkoutProvider(stepService)..init(),
         ),
       ],
       child: const MyApp(),
@@ -69,6 +89,13 @@ class MyApp extends StatelessWidget {
           onError: Color(0xFFFFFFFF),
         ),
         useMaterial3: true, // новый дизайн (скруглённые углы, другие тени)
+        // Красивые переходы между экранами: zoom на Android, свайп на iOS
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          },
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: const ColorScheme(
@@ -89,6 +116,12 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFF0B0F14),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          },
+        ),
       ),
       themeMode: stepProvider.themeMode, // тема выбирается по системной настройке телефона
       home: const OnboardingScreen(),

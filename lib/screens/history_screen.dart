@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../data/career.dart';
 import '../providers/step_provider.dart';
 
 // StatelessWidget, потому что всё состояние в провайдере
@@ -145,7 +146,10 @@ class HistoryScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          // БАННЕР «ДОРОГА В ГОРОД»: суммарный километраж как маршрут
+          _MilestoneBanner(totalKm: totalKm, isDark: isDark),
+          const SizedBox(height: 12),
           Text('График активности', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)), // Заголовок графика
           const SizedBox(height: 8),
           Expanded( // График
@@ -311,10 +315,90 @@ class HistoryScreen extends StatelessWidget {
 }
 
 // Форматирует большие числа компактно: 15300 -> "15.3K"
-String _formatCompact(int value) {
-  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+String _formatCompact(int value) {  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
   if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
   return value.toString();
+}
+
+// Баннер «Дорога в город»: показывает, до какого города ты уже "дошёл"
+// суммарным километражом, и сколько осталось до следующего
+class _MilestoneBanner extends StatelessWidget {
+  final double totalKm;
+  final bool isDark;
+
+  const _MilestoneBanner({required this.totalKm, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF00C853);
+    final next = nextMilestone(totalKm);
+    final reached = reachedMilestones(totalKm);
+    final subColor =
+        isDark ? const Color(0xFF8B95A7) : const Color(0xFF5A6577);
+
+    // Прогресс до следующего города (от предыдущей отметки)
+    double progress = 1.0;
+    if (next != null) {
+      final prevKm = reached.isEmpty ? 0.0 : reached.last.km.toDouble();
+      final span = next.km - prevKm;
+      progress = span > 0 ? ((totalKm - prevKm) / span).clamp(0.0, 1.0) : 0.0;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF151B23) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E2730) : const Color(0xFFD0D5DD),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.route, size: 18, color: green),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  next == null
+                      ? 'Ты дошёл до Лиссабона! Маршрут пройден полностью'
+                      : reached.isEmpty
+                          ? 'Твой маршрут начинается: до отметки «${next.city}» осталось ${(next.km - totalKm).toStringAsFixed(0)} км'
+                          : 'Ты дошёл до отметки «${reached.last.city}»! Далее: ${next.city} — осталось ${(next.km - totalKm).toStringAsFixed(0)} км',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor:
+                  isDark ? const Color(0xFF1E2730) : const Color(0xFFE8ECF1),
+              valueColor: const AlwaysStoppedAnimation<Color>(green),
+            ),
+          ),
+          if (reached.length > 1) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Пройдено: ${reached.map((m) => m.city).join(' → ')}',
+              style: TextStyle(fontSize: 10.5, color: subColor),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 // Карточка одной метрики дашборда

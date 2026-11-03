@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 
 class StorageService {
   static const String _positionKey = 'selected_position_id';
+  static const String _avatarKey = 'selected_avatar_id';
   static const String _stepsBox = 'steps';
   static const String _profileBox = 'profile';
 
@@ -25,6 +26,18 @@ class StorageService {
   static Future<String> getSelectedPosition() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_positionKey) ?? 'midfielder';
+  }
+
+  // Сохраняет ID выбранного аватара профиля
+  static Future<void> saveSelectedAvatar(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_avatarKey, id);
+  }
+
+  // Возвращает ID выбранного аватара (по умолчанию - бомбардир)
+  static Future<String> getSelectedAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_avatarKey) ?? 'striker';
   }
 
   // Сохраняет профиль игрока в Hive-бокс
