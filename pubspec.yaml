@@ -40,6 +40,8 @@ dependencies:
   provider: ^6.1.5+1 # Передаёт данные между экранами
   path_provider: ^2.1.6 # Для доступа к системным директориям устройства
   url_launcher: ^6.3.1 # Открытие внешних ссылок (кнопка «Актуальные коэффициенты»)
+  share_plus: ^11.0.0 # Кнопка «Поделиться результатом»
+  audioplayers: ^6.1.0 # Звуки стадиона в режиме «Матч»
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -78,6 +80,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/
+    - assets/avatars/
+    - assets/audio/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
