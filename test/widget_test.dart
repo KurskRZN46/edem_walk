@@ -25,7 +25,7 @@ void main() {
   });
 
   test('Футболисты: у каждого есть статья и факты', () {
-    expect(footballers.length, 6);
+    expect(footballers.length, 15);
     for (final f in footballers) {
       expect(f.article, isNotEmpty);
       expect(f.facts, isNotEmpty);
@@ -148,5 +148,14 @@ void main() {
       expect(e.description, isNotEmpty);
       expect(e.dose, isNotEmpty);
     }
+  });  test('v12: контент расширен - объёмы разделов', () {
+    expect(footballers.length, 15);
+    expect(footballFacts.length, greaterThanOrEqualTo(80));
+    expect(footballStadiums.length, greaterThanOrEqualTo(14));
+    expect(footballTactics.length, greaterThanOrEqualTo(12));
+    expect(legendaryClubs.length, greaterThanOrEqualTo(16));
+    expect(footballTerms.length, greaterThanOrEqualTo(30));
+    expect(footballRecords.length, greaterThanOrEqualTo(18));
+    expect(footballHistory.length, greaterThanOrEqualTo(18));
   });
 }
