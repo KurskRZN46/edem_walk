@@ -42,6 +42,8 @@ dependencies:
   url_launcher: ^6.3.1 # Открытие внешних ссылок (кнопка «Актуальные коэффициенты»)
   share_plus: ^11.0.0 # Кнопка «Поделиться результатом»
   audioplayers: ^6.1.0 # Звуки стадиона в режиме «Матч»
+  flutter_local_notifications: ^19.5.0 # Локальные напоминания (пуши без сервера)
+  timezone: ^0.10.1 # Часовые пояса для планирования пушей
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
