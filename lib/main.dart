@@ -1,5 +1,6 @@
 // Вот он. Момент с которого всё началось. Точка отсчёта.
 
+import 'dart:async'; // Timer для периодической синхронизации напоминаний
 import 'package:flutter/material.dart'; // UI-компоненты Material
 import 'package:flutter/services.dart'; // SystemChrome (ориентация экрана)
 import 'package:provider/provider.dart'; // Провайдеры (передача данных между экранами)
@@ -12,6 +13,7 @@ import 'providers/match_provider.dart'; // Провайдер режима «М�
 import 'providers/career_provider.dart'; // Провайдер карьеры и достижений
 import 'providers/avatar_provider.dart'; // Провайдер выбранного аватара
 import 'providers/workout_provider.dart'; // Провайдер интервальных тренировок
+import 'services/notification_service.dart'; // Локальные напоминания (пуши)
 import 'screens/onboarding_screen.dart'; // Первый экран (запрос разрешений, объяснение)
 
 void main() async {
@@ -24,6 +26,23 @@ void main() async {
 
   final stepService = StepService(); // Создаём сервис шагомера
   await stepService.init();
+
+  // Инициализируем напоминания и планируем пуши под текущее состояние
+  await NotificationService.init();
+  await NotificationService.syncAll(
+    steps: stepService.todaySteps,
+    goal: stepService.dailyGoal,
+    streakDays: stepService.streakDays,
+  );
+  // Пока приложение открыто, каждые 15 минут обновляем вечерний пуш
+  // (чтобы «осталось N шагов» было актуальным)
+  Timer.periodic(const Duration(minutes: 15), (_) {
+    NotificationService.syncAll(
+      steps: stepService.todaySteps,
+      goal: stepService.dailyGoal,
+      streakDays: stepService.streakDays,
+    );
+  });
 
   // Запускаем приложение с провайдерами
   runApp(
