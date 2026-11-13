@@ -34,11 +34,15 @@ class MainActivity : FlutterActivity() {
                     } else {
                         startService(intent)
                     }
+                    // Запоминаем, что пользователь включил подсчёт -
+                    // BootReceiver поднимет сервис после перезагрузки телефона
+                    prefs.edit().putBoolean("service_enabled", true).apply()
                     result.success(true)
                 }
                 "stopService" -> {
                     val intent = Intent(this, StepCounterService::class.java)
                     stopService(intent)
+                    prefs.edit().putBoolean("service_enabled", false).apply()
                     result.success(true)
                 }
                 "getSteps" -> {
