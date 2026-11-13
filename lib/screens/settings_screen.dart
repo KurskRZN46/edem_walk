@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/step_provider.dart';
 import '../services/step_service.dart';
+import '../widgets/notification_settings_card.dart';
 
 // StatefulWidget, потому что есть TextEditingController для ручного ввода цели
 class SettingsScreen extends StatefulWidget {
@@ -223,6 +224,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   
+                  const SizedBox(height: 16),
+                  // УВЕДОМЛЕНИЯ (v12)
+                  const NotificationSettingsCard(),
                   const SizedBox(height: 16),
                   // ТЕМА
                   _SectionCard(
